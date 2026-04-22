@@ -1,0 +1,282 @@
+﻿________________
+
+
+Product Requirements Document (PRD)
+Project Title:
+Tap for Your Candidate – 2027 Election Game (Telegram Bot)
+________________
+
+
+Overview
+Objective
+A gamified Telegram experience where users tap to support their preferred political candidates for the 2027 Nigerian elections both Presidential and Gubernatorial with periodic shareable image outputs, referral links, and social engagement features. The game aims to increase political engagement in a fun, viral way.
+Target Users
+* Young voters and politically active Nigerians on Telegram
+
+* Supporters of specific presidential or gubernatorial candidates
+
+* Users looking for fun, reward-based political engagement
+
+* Influencers and micro-activists driving awareness for local candidates
+
+________________
+
+
+Core Features
+1. Onboarding & Game Start
+   * Telegram Bot Interaction
+
+      * /start command initializes the bot
+
+      * Bot explains how the game works
+
+      * User chooses:
+
+         * State of residence (from a list of all 36 states + FCT)
+
+         * A presidential candidate (from a predefined list of top contestants)
+
+         * A gubernatorial candidate (based on selected state)
+
+            * User Data Captured:
+
+               * Telegram ID, username
+
+               * State
+
+               * Presidential candidate
+
+               * Gubernatorial candidate
+
+________________
+
+
+2. Tap to Support Candidates
+                  * Tap Mechanism
+
+                     * Button-based or emoji-based tap interaction (e.g., 🔥 Tap for Bola)
+
+                     * Separate tap count for:
+
+                        * Presidential candidate
+
+                        * Gubernatorial candidate
+
+                           * Tap Limits
+
+                              * Daily tap limit (e.g., 100 taps/day per candidate)
+
+                              * Cooldown mechanism to prevent spam tapping
+
+                                 * Tap Rewards
+
+                                    * Points earned per tap (for leaderboard + bragging rights)
+
+                                    * Special badges for milestones (e.g., 1k taps = Silver Supporter)
+
+________________
+
+
+3. Periodic Shareable Content
+                                       * Every 3 Days, generate a shareable image:
+
+                                          * Displays:
+
+                                             * Candidate image
+
+                                             * User’s tap points
+
+                                             * Tap rank (optional)
+
+                                             * “I’m supporting [Candidate] – Tap with me” message
+
+                                             * Referral link (e.g., t.me/your_bot?start=username)
+
+
+
+
+________________
+
+
+4. Referral & Viral Growth
+
+
+                                                * Subscription Model: Users subscribe with $10
+                                                * Referral Link
+
+                                                   * Each user gets a unique referral link
+
+                                                   * When someone joins via referral:
+
+                                                      * Referrer gets bonus points
+
+                                                      * Referral is tracked
+                                                      * Referral bonus are only cashable if the user is a subscriber and the referees are also subscribers too
+                                                      * Weekly giveaways to subscribers with the highest subscribed referees
+
+                                                      * 
+
+
+                                                         * “Tap With Me”
+
+                                                            * Image generator that includes:
+
+                                                               * Referral link
+
+                                                               * Candidate name
+
+                                                               * Support points
+
+                                                               * Option to “Join the Movement”
+
+________________
+
+
+5. Leaderboards (Optional but Valuable)
+                                                                  * Per Candidate Leaderboard:
+
+                                                                     * Top tappers for Bola, Obi, Atiku, etc.
+
+                                                                     * Top tappers by state (gubernatorial)
+
+                                                                        * Global Leaderboard:
+
+                                                                           * Tracks overall influence and engagement
+
+________________
+
+
+6. Poster Generator Tool (Separate from Game)
+                                                                              * Users can generate custom campaign posters
+
+                                                                              * Select:
+
+                                                                                 * Candidate (from a list you’ll provide)
+
+                                                                                 * State
+
+                                                                                 * Predefined themes/designs
+
+                                                                                    * Output: Shareable political poster (e.g., “Vote for Danjuma for Kogi Governor!”)
+
+________________
+
+
+
+
+7. Subscription Model 
+                                                                                       * Users can generate custom campaign posters
+
+                                                                                       * Select:
+
+                                                                                          * Candidate (from a list you’ll provide)
+
+                                                                                          * State
+
+                                                                                          * Predefined themes/designs
+
+                                                                                             * Output: Shareable political poster (e.g., “Vote for Danjuma for Kogi Governor!”)
+
+________________
+
+
+Technical Requirements
+Platform
+                                                                                                * Telegram Bot using Node.js or Python (e.g., NestJS)
+
+                                                                                                * Image generation:
+
+                                                                                                   * Canvas (Node)
+
+                                                                                                      * Database: PostgreSQL
+
+                                                                                                      * Hosting: VPS ( DigitalOcean)
+
+________________
+
+
+Admin Panel (Optional/Phase 2)
+                                                                                                         * Add/edit candidates
+
+                                                                                                         * Track leaderboard stats
+
+                                                                                                         * Manage poster data
+
+                                                                                                         * Trigger or customize 3-day image generation manually
+
+________________
+
+
+Design Requirements
+                                                                                                            * Brand color scheme for 2027 Elections (green, white, vibrant accents)
+
+                                                                                                            * Clear fonts, bold CTAs
+
+                                                                                                            * Images of candidates (cropped, branded)
+
+________________
+
+
+Non-Functional Requirements
+                                                                                                               * Must handle high message throughput
+
+                                                                                                               * 99% uptime during election season
+
+                                                                                                               * Fast image generation (<5 seconds)
+
+                                                                                                               * GDPR-style data notice for users
+
+________________
+
+
+Success Metrics
+                                                                                                                  * 10,000+ active tappers within 1 month
+
+                                                                                                                  * 100,000+ taps before election day
+
+                                                                                                                  * Viral sharing of tap cards and posters
+
+                                                                                                                  * User retention > 40% after 7 days
+
+________________
+
+
+Milestones
+Milestone
+	Description
+	ETA
+	M1
+	Candidate + State Setup + Basic Tapping
+	Week 1
+	M2
+	Tap Count Tracking + Daily Limits
+	Week 2
+	M3
+	Image Generator (3-day tap summary)
+	Week 3
+	M4
+	Referral & “Tap With Me” Sharing
+	Week 4
+	M5
+	Poster Generator Tool
+	Week 5
+	M6
+	Leaderboard + Analytics (Optional)
+	Week 6
+	________________
+
+
+Next Steps
+                                                                                                                     1. Define candidate data (images, names, positions)
+
+                                                                                                                     2. Confirm design style for shareables
+
+                                                                                                                     3. Build initial user flow and tapping logic
+
+                                                                                                                     4. Implement Telegram bot logic
+
+                                                                                                                     5. Test with 10–50 users
+
+                                                                                                                     6. Roll out viral sharing features
+
+________________
