@@ -22,6 +22,9 @@ export class Candidate {
   @Prop()
   imageUrl: string;
 
+  @Prop()
+  party: string;
+
   @Prop({ default: 0 })
   totalTaps: number;
 }

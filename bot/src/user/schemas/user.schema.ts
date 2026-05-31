@@ -11,6 +11,12 @@ export class User {
   @Prop()
   username: string;
 
+  @Prop()
+  firstName: string;
+
+  @Prop()
+  lastName: string;
+
   @Prop({ default: 0 })
   score: number;
 
@@ -23,7 +29,7 @@ export class User {
   @Prop()
   gubernatorialCandidate: string;
 
-  @Prop({ unique: true })
+  @Prop({ unique: true, sparse: true })
   referralCode: string;
 
   @Prop()
@@ -31,6 +37,9 @@ export class User {
 
   @Prop({ default: false })
   isSubscriber: boolean;
+
+  @Prop({ default: false })
+  onboardingComplete: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -1,136 +1,232 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { Trophy, Users, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trophy, Users, Home, Palette } from 'lucide-react';
+import OnboardingFlow from './components/OnboardingFlow';
+import TapContainer from './components/TapContainer';
+import LeaderboardContainer from './components/LeaderboardContainer';
+import FriendsContainer from './components/FriendsContainer';
+import PosterGenerator from './components/PosterGenerator';
+import PremiumOverlay from './components/PremiumOverlay';
+import AdminDashboard from './components/AdminDashboard';
 import './index.css';
 
+const API_BASE = '/api';
+
 // Initialize the Telegram SDK early
-if (typeof WebApp !== 'undefined' && typeof WebApp.ready === 'function') {
-  WebApp.ready();
-  WebApp.expand();
-} else if ((window as any).Telegram?.WebApp) {
-  (window as any).Telegram.WebApp.ready();
-  (window as any).Telegram.WebApp.expand();
+const tg = (window as any).Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
 }
 
-function TapView() {
-  const [points, setPoints] = useState(0);
-  const [clicks, setClicks] = useState<{ id: number, x: number, y: number }[]>([]);
-  const clickIdRef = useRef(0);
-
-  const handleTap = useCallback((e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
-    // Provide haptic feedback if available
-    if ((window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred) {
-      (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
-    }
-
-    setPoints(prev => prev + 1);
-
-    // Calculate click coordinates for floating animation
-    let clientX, clientY;
-    
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    const id = clickIdRef.current++;
-    setClicks(prev => [...prev, { id, x, y }]);
-    
-    // Remove floating number after animation
-    setTimeout(() => {
-      setClicks(prev => prev.filter(click => click.id !== id));
-    }, 800);
-
-    // TODO: Need debounced API call to /api/game/tap
-  }, []);
-
-  return (
-    <main className="main-content">
-      <div className="points-label">Your Contribution</div>
-      <div className="points-display">{points.toLocaleString()}</div>
-
-      <div 
-        className="tap-area" 
-        onPointerDown={handleTap}
-      >
-        <div className="tap-ring"></div>
-        <img 
-          className="tap-image" 
-          src="https://ui-avatars.com/api/?name=C&background=008753&color=fff&size=256" 
-          alt="Candidate" 
-          draggable="false"
-        />
-        {clicks.map(click => (
-          <div 
-            key={click.id} 
-            className="floating-number"
-            style={{ left: `${click.x}px`, top: `${click.y}px` }}
-          >
-            +1
-          </div>
-        ))}
-      </div>
-    </main>
-  );
+function getTelegramUser() {
+  const user = tg?.initDataUnsafe?.user;
+  
+  // Parse referral code if passed from startParam
+  const startParam = tg?.initDataUnsafe?.start_param || '';
+  
+  return {
+    telegramId: user?.id?.toString() || '',
+    username: user?.username || '',
+    firstName: user?.first_name || '',
+    lastName: user?.last_name || '',
+    referredByCode: startParam,
+  };
 }
 
-function LeaderboardView() {
-  return (
-    <main className="main-content" style={{ justifyContent: 'flex-start', width: '100%', padding: '1rem' }}>
-      <h2 style={{ color: 'var(--primary)', marginBottom: '1rem', alignSelf: 'flex-start' }}>Top Supporters</h2>
-      <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '15px', padding: '1rem' }}>
-        {[1, 2, 3, 4, 5, 6].map((_, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 0', borderBottom: i < 5 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-            <span style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <span style={{ color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', fontWeight: '900', fontSize: '1.2rem' }}>#{i + 1}</span>
-              <span style={{ fontWeight: 'bold' }}>CryptoUser_{i + 1}</span>
-            </span>
-            <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{(15000 - i * 1500).toLocaleString()} taps</span>
-          </div>
-        ))}
-      </div>
-    </main>
-  );
+interface GameViewProps {
+  telegramId: string;
+  profile: any;
+  onProfileUpdate: (updatedProfile: any) => void;
+  onOpenPremium: () => void;
 }
 
-function App() {
-  const [activeTab, setActiveTab] = useState<'tap' | 'leaderboard' | 'friends'>('tap');
+type Tab = 'tap' | 'leaderboard' | 'friends' | 'poster';
+
+function GameView({
+  telegramId,
+  profile,
+  onProfileUpdate,
+  onOpenPremium,
+}: GameViewProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('tap');
 
   return (
-    <div className="app-container">
+    <>
       <header className="header">
         <h1 className="title">Tap For <span className="green-text">Candidate</span></h1>
       </header>
 
-      {activeTab === 'tap' && <TapView />}
-      {activeTab === 'leaderboard' && <LeaderboardView />}
+      {activeTab === 'tap' && (
+        <TapContainer
+          telegramId={telegramId}
+          profile={profile}
+          onProfileUpdate={onProfileUpdate}
+        />
+      )}
+      {activeTab === 'leaderboard' && (
+        <LeaderboardContainer profile={profile} />
+      )}
       {activeTab === 'friends' && (
-        <main className="main-content">
-          <h2 style={{ color: 'var(--accent)' }}>Share & Earn!</h2>
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Invite your friends and earn bonus tap multipliers.</p>
-        </main>
+        <FriendsContainer
+          telegramId={telegramId}
+          profile={profile}
+          onOpenPremium={onOpenPremium}
+        />
+      )}
+      {activeTab === 'poster' && (
+        <PosterGenerator profile={profile} />
       )}
 
       <footer className="bottom-nav">
         <div className={`nav-item ${activeTab === 'tap' ? 'active' : ''}`} onClick={() => setActiveTab('tap')}>
-          <Home size={24} />
+          <Home size={22} />
           <span>Tap</span>
         </div>
         <div className={`nav-item ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>
-          <Trophy size={24} />
-          <span>Leaderboard</span>
+          <Trophy size={22} />
+          <span>Ranks</span>
         </div>
         <div className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
-          <Users size={24} />
+          <Users size={22} />
           <span>Friends</span>
         </div>
+        <div className={`nav-item ${activeTab === 'poster' ? 'active' : ''}`} onClick={() => setActiveTab('poster')}>
+          <Palette size={22} />
+          <span>Poster</span>
+        </div>
       </footer>
+    </>
+  );
+}
+
+type AppState = 'loading' | 'onboarding' | 'game';
+
+function App() {
+  const [appState, setAppState] = useState<AppState>('loading');
+  const [telegramUser, setTelegramUser] = useState(getTelegramUser());
+  const [profile, setProfile] = useState<any>(null);
+  const [isPremiumOpen, setIsPremiumOpen] = useState(false);
+
+  const fetchProfile = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/user/profile?telegramId=${id}`);
+      const data = await res.json();
+      if (data.exists) {
+        setProfile(data);
+        if (data.onboardingComplete) {
+          setAppState('game');
+        } else {
+          setAppState('onboarding');
+        }
+      } else {
+        setAppState('onboarding');
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+      setAppState('onboarding');
+    }
+  };
+
+  useEffect(() => {
+    const initUser = async () => {
+      const user = getTelegramUser();
+      
+      // For local testing outside Telegram context
+      if (!user.telegramId) {
+        console.warn('No Telegram context — setting dev testing credentials');
+        const devUser = {
+          telegramId: 'dev_test_voter_1',
+          username: 'dev_tester',
+          firstName: 'General',
+          lastName: 'Voter',
+          referredByCode: '',
+        };
+        setTelegramUser(devUser);
+        
+        // Register dev user
+        await fetch(`${API_BASE}/user/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(devUser),
+        });
+
+        await fetchProfile(devUser.telegramId);
+        return;
+      }
+
+      setTelegramUser(user);
+
+      try {
+        // Register user (and check referral code deep link parameter)
+        await fetch(`${API_BASE}/user/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId: user.telegramId,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            referredByCode: user.referredByCode,
+          }),
+        });
+
+        await fetchProfile(user.telegramId);
+      } catch (err) {
+        console.error('Failed to register/load user status:', err);
+        setAppState('onboarding');
+      }
+    };
+
+    initUser();
+  }, []);
+
+  const handleOnboardingComplete = async () => {
+    setAppState('loading');
+    await fetchProfile(telegramUser.telegramId);
+  };
+
+  const handleProfileUpdate = (updatedProfile: any) => {
+    setProfile(updatedProfile);
+  };
+
+  if (window.location.pathname === '/admin') {
+    return <AdminDashboard />;
+  }
+
+  return (
+    <div className="app-container">
+      {appState === 'loading' && (
+        <div className="loading-screen">
+          <div className="loading-spinner" />
+          <p className="loading-text">Loading Voter Pass...</p>
+        </div>
+      )}
+
+      {appState === 'onboarding' && (
+        <OnboardingFlow
+          telegramId={telegramUser.telegramId}
+          username={telegramUser.username}
+          firstName={telegramUser.firstName}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
+
+      {appState === 'game' && (
+        <GameView
+          telegramId={telegramUser.telegramId}
+          profile={profile}
+          onProfileUpdate={handleProfileUpdate}
+          onOpenPremium={() => setIsPremiumOpen(true)}
+        />
+      )}
+
+      {isPremiumOpen && (
+        <PremiumOverlay
+          telegramId={telegramUser.telegramId}
+          onClose={() => setIsPremiumOpen(false)}
+          onProfileUpdate={handleProfileUpdate}
+        />
+      )}
     </div>
   );
 }
