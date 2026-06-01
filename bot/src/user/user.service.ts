@@ -74,7 +74,7 @@ export class UserService {
     data: {
       state: string;
       presidentialCandidateId: string;
-      gubernatorialCandidateId: string;
+      gubernatorialCandidateId?: string;
     },
   ): Promise<UserDocument> {
     // Validate state
@@ -90,17 +90,21 @@ export class UserService {
       throw new BadRequestException('Invalid presidential candidate');
     }
 
-    // Validate gubernatorial candidate exists and matches selected state
-    const gubernatorial = await this.candidateModel
-      .findById(data.gubernatorialCandidateId)
-      .exec();
-    if (!gubernatorial || gubernatorial.role !== 'GOVERNOR') {
-      throw new BadRequestException('Invalid gubernatorial candidate');
-    }
-    if (gubernatorial.state !== data.state) {
-      throw new BadRequestException(
-        'Gubernatorial candidate does not match selected state',
-      );
+    let validGubernatorialId: string | null = null;
+    if (data.gubernatorialCandidateId) {
+      // Validate gubernatorial candidate exists and matches selected state
+      const gubernatorial = await this.candidateModel
+        .findById(data.gubernatorialCandidateId)
+        .exec();
+      if (!gubernatorial || gubernatorial.role !== 'GOVERNOR') {
+        throw new BadRequestException('Invalid gubernatorial candidate');
+      }
+      if (gubernatorial.state !== data.state) {
+        throw new BadRequestException(
+          'Gubernatorial candidate does not match selected state',
+        );
+      }
+      validGubernatorialId = gubernatorial._id.toString();
     }
 
     // Update user record
@@ -110,7 +114,7 @@ export class UserService {
         {
           state: data.state,
           presidentialCandidate: data.presidentialCandidateId,
-          gubernatorialCandidate: data.gubernatorialCandidateId,
+          gubernatorialCandidate: validGubernatorialId,
           onboardingComplete: true,
         },
         { returnDocument: 'after' },

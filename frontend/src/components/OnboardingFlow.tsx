@@ -101,7 +101,7 @@ export default function OnboardingFlow({
       case 'presidential':
         return !!selectedPresidential;
       case 'gubernatorial':
-        return !!selectedGubernatorial;
+        return true;
       default:
         return false;
     }
@@ -374,7 +374,7 @@ export default function OnboardingFlow({
           {isSubmitting
             ? 'Saving...'
             : currentStep === 'gubernatorial'
-              ? 'Start Tapping! 🚀'
+              ? (selectedGubernatorial ? 'Start Tapping! 🚀' : 'Skip & Start! 🚀')
               : currentStep === 'welcome'
                 ? 'Get Started'
                 : 'Continue'}

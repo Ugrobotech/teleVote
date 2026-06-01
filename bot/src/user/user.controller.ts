@@ -128,7 +128,7 @@ export class UserController {
       telegramId: string;
       state: string;
       presidentialCandidateId: string;
-      gubernatorialCandidateId: string;
+      gubernatorialCandidateId?: string;
     },
   ) {
     const user = await this.userService.completeOnboarding(body.telegramId, {
