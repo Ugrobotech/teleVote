@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://televote.onrender.com/api/:path*"
+    },
+    {
+      "source": "/((?!api|assets|favicon.ico).*)",
+      "destination": "/index.html"
     }
   ]
 }
