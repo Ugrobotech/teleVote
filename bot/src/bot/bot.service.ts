@@ -12,7 +12,7 @@ export class BotService {
 
   @Start()
   async onStart(ctx: Context) {
-    const webAppUrl = 'https://d446-105-112-102-140.ngrok-free.app';
+    const webAppUrl = 'https://tele-vote.vercel.app';
 
     // Parse referral code if present (looks like: "/start ref_12345")
     let referredByCode = '';

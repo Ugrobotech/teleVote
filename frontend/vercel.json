@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://televote.onrender.com/api/:path*"
+    }
+  ]
+}
