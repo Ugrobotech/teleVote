@@ -1978,3 +1978,148 @@ body {
   background: var(--primary-light);
 }
 
+/* ================== ADMIN DASHBOARD RESPONSIVENESS ================== */
+
+.admin-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-dark);
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.admin-header-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.admin-container {
+  flex: 1;
+  display: flex;
+}
+
+.admin-sidebar {
+  width: 240px;
+  background: #121212;
+  border-right: 1px solid var(--glass-border);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-workspace {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 64px);
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.admin-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.admin-modal-content {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Mobile Media Queries */
+@media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 12px;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .admin-header .title {
+    justify-content: center;
+  }
+
+  .admin-header-info {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+    white-space: nowrap;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for clean tab look */
+  }
+
+  .admin-sidebar button {
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+
+  .admin-workspace {
+    padding: 1rem;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .admin-modal-content {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+}
+
+

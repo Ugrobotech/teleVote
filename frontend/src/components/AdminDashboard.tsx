@@ -462,17 +462,16 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-dark)' }}>
+    <div className="admin-wrapper">
       {/* HEADER */}
-      <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: 'var(--bg-card)' }}>
+      <header className="admin-header">
         <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <ShieldAlert className="green-text" size={24} />
           <span>Voter Pass <span className="green-text">Console</span></span>
         </h1>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div className="admin-header-info">
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Logged in as: <strong>{username}</strong></span>
           <button
             onClick={handleLogout}
@@ -497,9 +496,9 @@ export default function AdminDashboard() {
       </header>
 
       {/* BODY CONTENT WITH SIDEBAR ROUTING */}
-      <div style={{ flex: 1, display: 'flex' }}>
+      <div className="admin-container">
         {/* SIDEBAR NAVIGATION */}
-        <aside style={{ width: '240px', background: '#121212', borderRight: '1px solid var(--glass-border)', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <aside className="admin-sidebar">
           <button 
             className={`nav-tab-btn ${activeTab === 'candidates' ? 'active' : ''}`}
             onClick={() => setActiveTab('candidates')}
@@ -612,7 +611,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* WORKSPACE VIEW PANEL */}
-        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)' }}>
+        <main className="admin-workspace">
           {loading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
               <div className="loading-spinner" />
@@ -848,7 +847,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {searchedUser && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="admin-grid">
                       {/* Left: profile details */}
                       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '1.5rem' }}>
                         <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
@@ -994,8 +993,8 @@ export default function AdminDashboard() {
 
       {/* ==================== ADD CANDIDATE MODAL OVERLAY ==================== */}
       {showAddModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', position: 'relative' }}>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-content">
             <button 
               onClick={() => setShowAddModal(false)}
               style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -1176,8 +1175,8 @@ export default function AdminDashboard() {
 
       {/* ==================== EDIT CANDIDATE MODAL OVERLAY ==================== */}
       {showEditModal && editingCandidate && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', position: 'relative' }}>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-content">
             <button 
               onClick={() => {
                 setShowEditModal(false);
