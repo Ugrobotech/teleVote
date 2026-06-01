@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.git
+.gitignore
+.dockerignore
+Dockerfile
+pnpm-debug.log
+npm-debug.log
+pnpm-lock.yaml.tmp
