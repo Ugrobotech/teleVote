@@ -12,7 +12,7 @@ export class BotService {
 
   @Start()
   async onStart(ctx: Context) {
-    const webAppUrl = 'https://b600-197-211-52-71.ngrok-free.app';
+    const webAppUrl = process.env.APP_URL;
 
     // Parse referral code if present (looks like: "/start ref_12345")
     let referredByCode = '';
