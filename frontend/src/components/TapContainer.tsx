@@ -34,9 +34,14 @@ export default function TapContainer({
   const activeCandidate = activeRole === 'PRESIDENT' ? presidential : gubernatorial;
 
   // Taps tracking
-  const [candidateTotalTaps, setCandidateTotalTaps] = useState(0);
   const [dailyTaps, setDailyTaps] = useState(0);
+  const [voterTotalTaps, setVoterTotalTaps] = useState<number>(user.score || 0);
   const [floatingClicks, setFloatingClicks] = useState<{ id: number; x: number; y: number }[]>([]);
+
+  // Synchronize local voterTotalTaps with user.score profile updates
+  useEffect(() => {
+    setVoterTotalTaps(user.score || 0);
+  }, [user.score]);
   
   // Selector states
   const [showSelectorModal, setShowSelectorModal] = useState(false);
@@ -92,13 +97,9 @@ export default function TapContainer({
   // Load and cache daily taps count from database
   useEffect(() => {
     if (!activeCandidate) {
-      setCandidateTotalTaps(0);
       setDailyTaps(0);
       return;
     }
-    
-    // Set candidate total taps
-    setCandidateTotalTaps(activeCandidate.totalTaps || 0);
 
     // Fetch user's daily tap count for this candidate today
     // We can check this by fetching the leaderboard or user status, or we can just fetch a lightweight status
@@ -141,7 +142,6 @@ export default function TapContainer({
 
       const data = await res.json();
       if (data.success) {
-        setCandidateTotalTaps(data.candidateTotalTaps);
         setDailyTaps(data.dailyTapsCount);
         
         // Refresh overall user profile to update total user score
@@ -165,7 +165,7 @@ export default function TapContainer({
   // Handle tap event
   const handleTap = useCallback((e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
     if (!activeCandidate) return;
-    if (dailyTaps >= 100) return; // Daily limit reached
+    if (dailyTaps >= 1000) return; // Daily limit reached
 
     // Provide haptic feedback if available
     if (tg?.HapticFeedback?.impactOccurred) {
@@ -173,8 +173,8 @@ export default function TapContainer({
     }
 
     // Increment locally for instant responsiveness
-    setDailyTaps(prev => Math.min(100, prev + 1));
-    setCandidateTotalTaps(prev => prev + 1);
+    setDailyTaps(prev => Math.min(1000, prev + 1));
+    setVoterTotalTaps(prev => prev + 1);
     pendingTapsRef.current += 1;
 
     // Floating animation coordinates
@@ -252,7 +252,7 @@ export default function TapContainer({
     );
   }
 
-  const isLimitReached = dailyTaps >= 100;
+  const isLimitReached = dailyTaps >= 1000;
 
   return (
     <main className="main-content tap-main">
@@ -281,9 +281,32 @@ export default function TapContainer({
       </div>
 
       {/* Global Voter Stats */}
+      {/* Global Voter Stats */}
       <div className="voter-score-badge">
+        {user.isSubscriber && (
+          <span 
+            className="premium-voter-badge" 
+            style={{
+              background: 'linear-gradient(135deg, #f2a900 0%, #ffdf00 100%)',
+              color: '#000',
+              fontSize: '0.65rem',
+              fontWeight: 800,
+              padding: '4px 12px',
+              borderRadius: '20px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              boxShadow: '0 0 10px rgba(242, 169, 0, 0.4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginBottom: '8px'
+            }}
+          >
+            <Sparkles size={10} /> Premium Voter
+          </span>
+        )}
         <span className="badge-title">Your Total Taps</span>
-        <span className="badge-value">{(user.score || 0).toLocaleString()}</span>
+        <span className="badge-value">{(voterTotalTaps || 0).toLocaleString()}</span>
       </div>
 
       {/* Candidate Display */}
@@ -294,7 +317,7 @@ export default function TapContainer({
         <h2 className="candidate-active-name">{activeCandidate?.name || 'No Governor Selected'}</h2>
         <div className="candidate-total-stats">
           <Flame size={16} className="flame-icon" />
-          <span>{(candidateTotalTaps || 0).toLocaleString()} total taps</span>
+          <span>{(dailyTaps || 0).toLocaleString()} taps today</span>
         </div>
       </div>
 
@@ -344,7 +367,7 @@ export default function TapContainer({
           {isLimitReached && (
             <div className="lock-overlay">
               <CheckCircle2 size={54} className="checkmark-icon" />
-              <span>Daily 100 Limit Reached!</span>
+              <span>Daily 1000 Limit Reached!</span>
             </div>
           )}
 
@@ -365,18 +388,18 @@ export default function TapContainer({
       <div className="daily-progress-meter">
         <div className="meter-header">
           <span>Daily Tap Budget</span>
-          <span className="progress-fraction">{dailyTaps}/100</span>
+          <span className="progress-fraction">{dailyTaps}/1000</span>
         </div>
         <div className="meter-bar-bg">
           <div 
             className="meter-bar-fill"
-            style={{ width: `${(dailyTaps / 100) * 100}%` }}
+            style={{ width: `${(dailyTaps / 1000) * 100}%` }}
           ></div>
         </div>
         <p className="meter-footer">
           {isLimitReached 
             ? 'Daily limit achieved! Check back in 24 hours.' 
-            : `${100 - dailyTaps} taps left to contribute today.`}
+            : `${1000 - dailyTaps} taps left to contribute today.`}
         </p>
       </div>
 

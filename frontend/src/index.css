@@ -2122,4 +2122,46 @@ body {
   }
 }
 
+/* ================== MULTI-CHAIN WALLET ================== */
+.wallet-main {
+  justify-content: flex-start;
+  padding: 1.25rem;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.wallet-address-card {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.wallet-address-card:hover {
+  border-color: var(--primary-light);
+}
+
+.wallet-network-card {
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.wallet-network-card:hover {
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+}
+
+.refresh-balances-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.refresh-balances-action-btn:hover {
+  color: var(--primary-light);
+}
+
+.refresh-balances-action-btn.spinning svg {
+  animation: spin 1s linear infinite;
+}
+
 

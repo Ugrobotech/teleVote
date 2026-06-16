@@ -6,6 +6,7 @@ interface Candidate {
   name: string;
   role: 'PRESIDENT' | 'GOVERNOR';
   state?: string;
+  imageUrl?: string;
 }
 
 interface PosterGeneratorProps {
@@ -67,8 +68,6 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
   const presidential = user.presidentialCandidate as Candidate;
   const gubernatorial = user.gubernatorialCandidate as Candidate;
 
-  // Selected state
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(presidential || gubernatorial || null);
   const [activeTheme, setActiveTheme] = useState(THEMES[0]);
   const [customSlogan, setCustomSlogan] = useState(SLOGANS[0]);
   const [isCustomSlogan, setIsCustomSlogan] = useState(false);
@@ -76,16 +75,53 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
     user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : `@${user.username || 'Citizen'}`
   );
 
+  const [presidentialImage, setPresidentialImage] = useState<HTMLImageElement | null>(null);
+  const [gubernatorialImage, setGubernatorialImage] = useState<HTMLImageElement | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Preload Presidential Candidate Image
+  useEffect(() => {
+    if (!presidential || !presidential.imageUrl) {
+      setPresidentialImage(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = presidential.imageUrl;
+    img.onload = () => {
+      setPresidentialImage(img);
+    };
+    img.onerror = () => {
+      setPresidentialImage(null);
+    };
+  }, [presidential]);
+
+  // Preload Gubernatorial Candidate Image
+  useEffect(() => {
+    if (!gubernatorial || !gubernatorial.imageUrl) {
+      setGubernatorialImage(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = gubernatorial.imageUrl;
+    img.onload = () => {
+      setGubernatorialImage(img);
+    };
+    img.onerror = () => {
+      setGubernatorialImage(null);
+    };
+  }, [gubernatorial]);
 
   // Redraw poster on settings changes
   useEffect(() => {
     drawPoster();
-  }, [selectedCandidate, activeTheme, customSlogan, endorserName]);
+  }, [activeTheme, customSlogan, endorserName, presidentialImage, gubernatorialImage]);
 
   const drawPoster = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !selectedCandidate) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -138,60 +174,146 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
       ctx.strokeRect(10, 10, width - 20, height - 20);
     }
 
-    // 2. Large Candidate Initials Badge in Center-Top
-    const badgeX = width / 2;
-    const badgeY = 220;
-    const badgeRadius = 100;
-
-    ctx.save();
-    // Shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-    ctx.shadowBlur = 15;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 8;
-
-    // Draw Badge Circle
-    ctx.fillStyle = theme.id === 'cyber' ? '#1e293b' : theme.secondary;
-    ctx.beginPath();
-    ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw Inner Ring
-    ctx.shadowColor = 'transparent'; // Reset shadow
-    ctx.strokeStyle = theme.primary;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.arc(badgeX, badgeY, badgeRadius - 10, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Draw Initials
-    const initials = selectedCandidate.name
-      .split(' ')
-      .map(w => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-
-    ctx.fillStyle = theme.id === 'cyber' ? theme.secondary : theme.text;
-    ctx.font = 'bold 70px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(initials, badgeX, badgeY);
-    ctx.restore();
-
-    // 3. Campaign Header Text
+    // 2. Title Section (Tele-Vote Header)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
 
-    // "SUPPORT" / "VOTE FOR" label
-    ctx.fillStyle = theme.id === 'patriotic' ? theme.darkText : theme.secondary;
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText(selectedCandidate.role === 'PRESIDENT' ? 'VOTE FOR PRESIDENT' : `SUPPORT GOVERNOR OF ${selectedCandidate.state?.toUpperCase()}`, width / 2, 400);
+    // Top App Name Header
+    ctx.fillStyle = theme.id === 'cyber' ? theme.secondary : (theme.id === 'patriotic' ? theme.primary : theme.accent);
+    ctx.font = 'bold 52px sans-serif';
+    ctx.fillText('TELE-VOTE 2027', width / 2, 100);
 
-    // Candidate Name
-    ctx.fillStyle = theme.id === 'patriotic' || theme.id === 'sunset' ? theme.primary : '#ffffff';
-    ctx.font = 'bold 56px sans-serif';
-    ctx.fillText(selectedCandidate.name, width / 2, 480);
+    ctx.fillStyle = theme.id === 'royal' || theme.id === 'cyber' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('MY PREFERRED REPRESENTATIVES FOR NIGERIA', width / 2, 140);
+
+    // Helper to draw candidate badge
+    const drawCandidateBadge = (
+      cand: Candidate | null,
+      img: HTMLImageElement | null,
+      cx: number,
+      cy: number,
+      radius: number,
+      roleLabel: string,
+      candName: string
+    ) => {
+      ctx.save();
+      // Shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 8;
+
+      // Draw Badge Circle
+      ctx.fillStyle = theme.id === 'cyber' ? '#1e293b' : theme.secondary;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw Inner Ring
+      ctx.shadowColor = 'transparent'; // Reset shadow
+      ctx.strokeStyle = theme.primary;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (cand) {
+        if (img) {
+          // Draw image inside the circle!
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
+          ctx.clip();
+          
+          // Draw image to fill the circle
+          ctx.drawImage(
+            img,
+            cx - (radius - 8),
+            cy - (radius - 8),
+            (radius - 8) * 2,
+            (radius - 8) * 2
+          );
+          ctx.restore();
+        } else {
+          // Draw Initials
+          const initials = cand.name
+            .split(' ')
+            .map(w => w[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase();
+
+          ctx.fillStyle = theme.id === 'cyber' ? theme.secondary : theme.text;
+          ctx.font = 'bold 50px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(initials, cx, cy);
+        }
+      } else {
+        // Placeholder / Not Selected
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = theme.id === 'cyber' ? theme.secondary : theme.text;
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', cx, cy);
+      }
+      ctx.restore();
+
+      // Candidate Text Info under badge
+      ctx.textAlign = 'center';
+      ctx.fillStyle = theme.id === 'royal' || theme.id === 'cyber' ? theme.secondary : theme.darkText;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(roleLabel, cx, cy + radius + 35);
+
+      ctx.fillStyle = theme.id === 'patriotic' || theme.id === 'sunset' ? theme.primary : '#ffffff';
+      ctx.font = 'bold 22px sans-serif';
+      
+      // Wrap name if too long for side-by-side
+      const maxNameWidth = 260;
+      const metrics = ctx.measureText(candName);
+      if (metrics.width > maxNameWidth) {
+        const words = candName.split(' ');
+        let line1 = '';
+        let line2 = '';
+        let breakIdx = Math.floor(words.length / 2);
+        for (let i = 0; i < words.length; i++) {
+          if (i <= breakIdx) line1 += words[i] + ' ';
+          else line2 += words[i] + ' ';
+        }
+        ctx.fillText(line1.trim(), cx, cy + radius + 70);
+        ctx.fillText(line2.trim(), cx, cy + radius + 100);
+      } else {
+        ctx.fillText(candName, cx, cy + radius + 75);
+      }
+    };
+
+    // Draw Presidential Candidate (Left)
+    drawCandidateBadge(
+      presidential || null,
+      presidentialImage,
+      220,
+      280,
+      90,
+      'VOTE FOR PRESIDENT',
+      presidential ? presidential.name : 'Not Selected'
+    );
+
+    // Draw Gubernatorial Candidate (Right)
+    drawCandidateBadge(
+      gubernatorial || null,
+      gubernatorialImage,
+      580,
+      280,
+      90,
+      `GOVERNOR OF ${user.state?.toUpperCase() || 'STATE'}`,
+      gubernatorial ? gubernatorial.name : 'Not Selected'
+    );
 
     // Thin accent divider
     ctx.fillStyle = theme.secondary === '#FFFFFF' ? theme.accent : theme.secondary;
@@ -204,7 +326,11 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
     ctx.fillStyle = theme.id === 'royal' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)';
     if (theme.id === 'cyber') ctx.fillStyle = 'rgba(56, 189, 248, 0.02)';
     ctx.beginPath();
-    ctx.roundRect(120, sloganBoxY, 560, sloganBoxH, 15);
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(120, sloganBoxY, 560, sloganBoxH, 15);
+    } else {
+      ctx.rect(120, sloganBoxY, 560, sloganBoxH);
+    }
     ctx.fill();
 
     // Text in Slogan Box
@@ -229,9 +355,8 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
     }
 
     // 5. Endorsement Signature
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.font = '16px sans-serif';
     ctx.fillStyle = theme.id === 'royal' || theme.id === 'cyber' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0,0,0,0.6)';
+    ctx.font = '16px sans-serif';
     ctx.fillText('CAMPAIGN ENVOY:', width / 2, 790);
 
     ctx.fillStyle = theme.accent === '#111111' ? theme.primary : theme.accent;
@@ -248,7 +373,7 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
 
     ctx.fillStyle = theme.id === 'royal' || theme.id === 'cyber' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0,0,0,0.4)';
     ctx.font = '15px sans-serif';
-    ctx.fillText('Generated via 2027 Election Game Telegram Mini App', width / 2, 930);
+    ctx.fillText('Generated via Tele-Vote Telegram Mini App 🇳🇬', width / 2, 930);
   };
 
   const handleDownload = () => {
@@ -257,7 +382,7 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
 
     const dataUrl = canvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `${selectedCandidate?.name.replace(/\s+/g, '_')}_2027_Poster.png`;
+    link.download = `Tele_Vote_2027_Poster.png`;
     link.href = dataUrl;
     link.click();
   };
@@ -269,29 +394,6 @@ export default function PosterGenerator({ profile }: PosterGeneratorProps) {
         <div className="editor-controls-card">
           <h2 className="editor-title">Poster Customizer</h2>
           <p className="editor-desc">Show support for your candidate with a custom high-quality campaign poster.</p>
-
-          {/* 1. Candidate Selector */}
-          <div className="control-group">
-            <label className="control-label">Candidate</label>
-            <div className="editor-candidate-selector">
-              {presidential && (
-                <button
-                  className={`cand-sel-btn ${selectedCandidate?._id === presidential._id ? 'active' : ''}`}
-                  onClick={() => setSelectedCandidate(presidential)}
-                >
-                  {presidential.name} (Pres)
-                </button>
-              )}
-              {gubernatorial && (
-                <button
-                  className={`cand-sel-btn ${selectedCandidate?._id === gubernatorial._id ? 'active' : ''}`}
-                  onClick={() => setSelectedCandidate(gubernatorial)}
-                >
-                  {gubernatorial.name} (Gov)
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* 2. Theme Selector */}
           <div className="control-group">

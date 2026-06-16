@@ -1,7 +1,13 @@
-import { useState } from 'react';
-import { Award, Check, Wallet, Smartphone, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  Award,
+  Check,
+  ExternalLink,
+  ShieldCheck,
+  RefreshCw,
+} from "lucide-react";
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 const tg = (window as any).Telegram?.WebApp;
 
 interface PremiumOverlayProps {
@@ -15,74 +21,223 @@ export default function PremiumOverlay({
   onClose,
   onProfileUpdate,
 }: PremiumOverlayProps) {
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletType, setWalletType] = useState<'tonkeeper' | 'telegram' | null>(null);
-  const [currency, setCurrency] = useState<'TON' | 'USDT'>('TON');
-  
-  const [connecting, setConnecting] = useState(false);
+  const [selectedNetwork, setSelectedNetwork] = useState<string>("solana");
+  const [selectedToken, setSelectedToken] = useState<"native" | "usdc">("usdc");
+  const [walletData, setWalletData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [txHash, setTxHash] = useState('');
+  const [txHash, setTxHash] = useState("");
 
-  const handleConnectWallet = (type: 'tonkeeper' | 'telegram') => {
-    setConnecting(true);
-    if (tg?.HapticFeedback?.impactOccurred) {
-      tg.HapticFeedback.impactOccurred('light');
+  const [prices, setPrices] = useState<Record<string, number>>({
+    solana: 150.0,
+    ethereum: 3500.0,
+    bsc: 580.0,
+    base: 3500.0,
+    polygon: 0.65,
+    arbitrum: 3500.0,
+  });
+
+  const fetchPricesAndBalances = async () => {
+    setLoading(true);
+    try {
+      // Fetch prices from Binance API
+      const symbols = ["SOLUSDT", "ETHUSDT", "BNBUSDT", "POLUSDT"];
+      const priceRes = await fetch(
+        `https://api.binance.com/api/v3/ticker/price?symbols=${JSON.stringify(symbols)}`,
+      );
+      const priceData = await priceRes.json();
+      const priceMap: any = {};
+      if (Array.isArray(priceData)) {
+        priceData.forEach((item) => {
+          priceMap[item.symbol] = parseFloat(item.price);
+        });
+      }
+
+      setPrices({
+        solana: priceMap.SOLUSDT || 150.0,
+        ethereum: priceMap.ETHUSDT || 3500.0,
+        bsc: priceMap.BNBUSDT || 580.0,
+        base: priceMap.ETHUSDT || 3500.0,
+        polygon: priceMap.POLUSDT || 0.65,
+        arbitrum: priceMap.ETHUSDT || 3500.0,
+      });
+
+      // Fetch user's wallet balances
+      const balRes = await fetch(
+        `${API_BASE}/wallet/balances?telegramId=${telegramId}`,
+      );
+      const balData = await balRes.json();
+      if (balData && balData.addresses) {
+        setWalletData(balData);
+      }
+    } catch (err) {
+      console.error("Failed to load prices/balances:", err);
+    } finally {
+      setLoading(false);
     }
-
-    setTimeout(() => {
-      setConnecting(false);
-      setWalletConnected(true);
-      setWalletType(type);
-    }, 1500);
   };
+
+  useEffect(() => {
+    fetchPricesAndBalances();
+  }, [telegramId]);
 
   const handlePayment = async () => {
+    if (!walletData) return;
     setPaying(true);
     if (tg?.HapticFeedback?.impactOccurred) {
-      tg.HapticFeedback.impactOccurred('heavy');
+      tg.HapticFeedback.impactOccurred("heavy");
     }
 
-    // Simulate blockchain mining/confirmation latency
-    setTimeout(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/user/subscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telegramId }),
-        });
+    try {
+      const res = await fetch(`${API_BASE}/user/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegramId,
+          network: selectedNetwork,
+          tokenType: selectedToken,
+        }),
+      });
 
-        const data = await res.json();
-        if (data.success) {
-          // Generate a fake transaction hash for demonstration
-          const randHash = '0x' + Array.from({ length: 40 }, () => 
-            Math.floor(Math.random() * 16).toString(16)
-          ).join('');
-          setTxHash(randHash);
-          setPaying(false);
-          setSuccess(true);
-          
-          if (tg?.HapticFeedback?.notificationOccurred) {
-            tg.HapticFeedback.notificationOccurred('success');
-          }
+      const data = await res.json();
+      if (data.success) {
+        setTxHash(data.signature || "");
+        setSuccess(true);
 
-          // Fetch fresh profile details
-          const profileRes = await fetch(`${API_BASE}/user/profile?telegramId=${telegramId}`);
-          const profileData = await profileRes.json();
-          if (profileData.exists) {
-            onProfileUpdate(profileData);
-          }
-        } else {
-          alert('Subscription failed: ' + (data.message || 'Unknown error'));
-          setPaying(false);
+        if (tg?.HapticFeedback?.notificationOccurred) {
+          tg.HapticFeedback.notificationOccurred("success");
         }
-      } catch (err) {
-        console.error('Failed to upgrade subscription:', err);
-        alert('Network error. Failed to process payment.');
-        setPaying(false);
+
+        // Fetch fresh profile details
+        const profileRes = await fetch(
+          `${API_BASE}/user/profile?telegramId=${telegramId}`,
+        );
+        const profileData = await profileRes.json();
+        if (profileData.exists) {
+          onProfileUpdate(profileData);
+        }
+      } else {
+        alert("Subscription failed: " + (data.message || "Unknown error"));
       }
-    }, 2500);
+    } catch (err) {
+      console.error("Failed to upgrade subscription:", err);
+      alert("Network error. Failed to process payment.");
+    } finally {
+      setPaying(false);
+    }
   };
+
+  const getExplorerLink = () => {
+    if (!walletData || !txHash) return "#";
+    const baseUrl = walletData.explorers[selectedNetwork] || "";
+    if (!baseUrl) return "#";
+
+    if (selectedNetwork === "solana") {
+      try {
+        const url = new URL(baseUrl);
+        url.pathname = `/tx/${txHash}`;
+        return url.toString();
+      } catch (e) {
+        if (baseUrl.includes("?")) {
+          const [base, query] = baseUrl.split("?");
+          const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+          return `${cleanBase}/tx/${txHash}?${query}`;
+        }
+        const cleanBase = baseUrl.endsWith("/")
+          ? baseUrl.slice(0, -1)
+          : baseUrl;
+        return `${cleanBase}/tx/${txHash}`;
+      }
+    }
+
+    const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    return `${cleanBase}/tx/${txHash}`;
+  };
+
+  // Helper selectors
+  const networks = [
+    {
+      key: "solana",
+      name: "Solana",
+      symbol: "SOL",
+      logo: "https://solscan.io/_next/static/media/solana-sol-logo.ecf2bf3a.svg",
+    },
+    {
+      key: "ethereum",
+      name: "Ethereum",
+      symbol: "ETH",
+      logo: "https://etherscan.io/images/svg/brands/ethereum-original.svg",
+    },
+    {
+      key: "bsc",
+      name: "BNB Chain",
+      symbol: "BNB",
+      logo: "https://bscscan.com/assets/bsc/images/svg/logos/token-light.svg?v=26.6.2.0",
+    },
+    {
+      key: "base",
+      name: "Base",
+      symbol: "ETH",
+      logo: "https://basescan.org/assets/base/images/svg/logos/chain-light.svg?v=",
+    },
+    {
+      key: "polygon",
+      name: "Polygon",
+      symbol: "POL",
+      logo: "https://polygonscan.com/assets/poly/images/svg/logos/token-light.svg?v=26.6.2.0",
+    },
+    {
+      key: "arbitrum",
+      name: "Arbitrum",
+      symbol: "ETH",
+      logo: "https://arbiscan.io/assets/arbitrum/images/svg/logos/token-secondary-light.svg?v=",
+    },
+  ];
+
+  const currentNetwork =
+    networks.find((n) => n.key === selectedNetwork) || networks[0];
+
+  // Calculate pricing & cost
+  const getRequiredAmount = () => {
+    if (selectedToken === "usdc") return 10.0;
+    const price = prices[selectedNetwork] || 1.0;
+    return 10.0 / price;
+  };
+
+  const getBalance = () => {
+    if (!walletData) return 0;
+    const bal = walletData.balances[selectedNetwork];
+    if (!bal) return 0;
+    return selectedToken === "usdc" ? bal.usdc : bal.native;
+  };
+
+  const requiredAmount = getRequiredAmount();
+  const balance = getBalance();
+  const hasEnoughFunds = balance >= requiredAmount;
+
+  if (loading) {
+    return (
+      <div className="premium-overlay-backdrop">
+        <div
+          className="premium-modal-card"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "350px",
+            gap: "15px",
+          }}
+        >
+          <div className="loading-spinner" />
+          <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
+            ...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="premium-overlay-backdrop">
@@ -98,118 +253,440 @@ export default function PremiumOverlay({
         {success ? (
           <div className="premium-flow-success">
             <div className="success-lottie-mock">
-              <ShieldCheck size={72} className="success-glowing-shield" />
+              <ShieldCheck
+                size={72}
+                className="success-glowing-shield"
+                style={{ color: "var(--primary)" }}
+              />
             </div>
-            <h2>Premium Status Unlocked! 🌟</h2>
-            <p className="success-p-description">
-              Congratulations! Your account has been upgraded. You now qualify for cashable referral rewards, double tapping power, and golden badges.
+            <h2
+              style={{
+                fontSize: "1.4rem",
+                fontWeight: 800,
+                margin: "1rem 0 0.5rem",
+              }}
+            >
+              Premium Status Unlocked! 🌟
+            </h2>
+            <p
+              className="success-p-description"
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--text-muted)",
+                lineHeight: 1.5,
+                marginBottom: "1.25rem",
+              }}
+            >
+              Congratulations! Your account has been upgraded. You now qualify
+              for cashable referral rewards, double tapping power, and voter
+              badges.
             </p>
-            <div className="blockchain-tx-box">
-              <span>Transaction Confirmed (TON)</span>
-              <span className="tx-hash-value" title={txHash}>{txHash.slice(0, 10)}...{txHash.slice(-8)}</span>
-            </div>
-            <button className="premium-dismiss-btn" onClick={onClose}>
+            {txHash && (
+              <div
+                className="blockchain-tx-box"
+                style={{
+                  background: "rgba(0,0,0,0.4)",
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  border: "1px solid var(--glass-border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "5px",
+                  marginBottom: "1.5rem",
+                  textAlign: "left",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    textTransform: "uppercase",
+                    color: "var(--text-muted)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Transaction Receipt ({selectedNetwork})
+                </span>
+                <a
+                  href={getExplorerLink()}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: "var(--primary-light)",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {txHash.slice(0, 16)}...{txHash.slice(-16)}
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            )}
+            <button
+              className="next-btn"
+              onClick={onClose}
+              style={{ width: "100%", padding: "14px", borderRadius: "12px" }}
+            >
               Let's Go! 🚀
             </button>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="premium-modal-header">
-              <Award className="brand-gold-sparkle" size={48} />
-              <h2>Premium Supporter Upgrade</h2>
-              <p>Support your candidate at the highest level and unlock referral payouts.</p>
+            <div
+              className="premium-modal-header"
+              style={{ textAlign: "center", marginBottom: "1.25rem" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <Award size={48} style={{ color: "var(--primary)" }} />
+              </div>
+              <h2
+                style={{
+                  fontSize: "1.35rem",
+                  fontWeight: 800,
+                  margin: "0 0 0.5rem",
+                }}
+              >
+                Premium Supporter Upgrade
+              </h2>
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "var(--text-muted)",
+                  margin: 0,
+                }}
+              >
+                Support your candidate at the highest level and unlock referral
+                payouts.
+              </p>
             </div>
 
             {/* Benefits list */}
-            <div className="premium-benefits-checklist">
-              <div className="benefit-row">
-                <Check className="check-gold" size={16} />
-                <span>**Cashable Referral Rewards:** Convert NGN 3,000 referrals to real funds.</span>
+            <div
+              className="premium-benefits-checklist"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                marginBottom: "1.25rem",
+                padding: "0.75rem",
+                background: "rgba(255,255,255,0.02)",
+                borderRadius: "12px",
+                border: "1px solid var(--glass-border)",
+              }}
+            >
+              <div
+                className="benefit-row"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.8rem",
+                  textAlign: "left",
+                }}
+              >
+                <Check
+                  size={14}
+                  style={{ color: "var(--primary-light)", flexShrink: 0 }}
+                />
+                <span>
+                  <strong>Cashable Referral Rewards:</strong> Qualify for
+                  referral rewards payouts.
+                </span>
               </div>
-              <div className="benefit-row">
-                <Check className="check-gold" size={16} />
-                <span>**2x Tap Multiplier:** Double the weight of your support on leadboards.</span>
+              <div
+                className="benefit-row"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.8rem",
+                  textAlign: "left",
+                }}
+              >
+                <Check
+                  size={14}
+                  style={{ color: "var(--primary-light)", flexShrink: 0 }}
+                />
+                <span>
+                  <strong>2x Tap Multiplier:</strong> Double the weight of your
+                  support on rankings.
+                </span>
               </div>
-              <div className="benefit-row">
-                <Check className="check-gold" size={16} />
-                <span>**Golden Poster Themes:** Access exclusive backgrounds in the poster editor.</span>
-              </div>
-              <div className="benefit-row">
-                <Check className="check-gold" size={16} />
-                <span>**Weekly Giveaway Access:** Automatically enter the top supporter raffles.</span>
+              <div
+                className="benefit-row"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.8rem",
+                  textAlign: "left",
+                }}
+              >
+                <Check
+                  size={14}
+                  style={{ color: "var(--primary-light)", flexShrink: 0 }}
+                />
+                <span>
+                  <strong>Voter Badges:</strong> Display a premium badge next to
+                  your rank.
+                </span>
               </div>
             </div>
 
-            {/* Price section */}
-            <div className="premium-price-tier-selector">
-              <div className="price-label-row">
-                <span>Voter Pass Subscription</span>
-                <span className="converted-price">≈ $10.00 USD</span>
+            {/* Network Selector */}
+            <div style={{ textAlign: "left", marginBottom: "1rem" }}>
+              <label
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  display: "block",
+                  marginBottom: "8px",
+                }}
+              >
+                Select Payment Network
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "6px",
+                }}
+              >
+                {networks.map((net) => (
+                  <button
+                    key={net.key}
+                    onClick={() => setSelectedNetwork(net.key)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background:
+                        selectedNetwork === net.key
+                          ? "rgba(0,135,83,0.15)"
+                          : "rgba(255,255,255,0.03)",
+                      border:
+                        selectedNetwork === net.key
+                          ? "2px solid var(--primary)"
+                          : "2px solid var(--glass-border)",
+                      borderRadius: "10px",
+                      padding: "8px 6px",
+                      cursor: "pointer",
+                      color:
+                        selectedNetwork === net.key
+                          ? "#fff"
+                          : "rgba(255,255,255,0.6)",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      justifyContent: "center",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <img
+                      src={net.logo}
+                      alt={net.name}
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                      }}
+                    />
+                    <span>{net.name === "BNB Chain" ? "BNB" : net.name}</span>
+                  </button>
+                ))}
               </div>
-              
-              <div className="crypto-currency-selector">
+            </div>
+
+            {/* Token Selector */}
+            <div style={{ textAlign: "left", marginBottom: "1.25rem" }}>
+              <label
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  display: "block",
+                  marginBottom: "8px",
+                }}
+              >
+                Select Asset
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
                 <button
-                  className={`currency-pill ${currency === 'TON' ? 'active' : ''}`}
-                  onClick={() => setCurrency('TON')}
+                  onClick={() => setSelectedToken("usdc")}
+                  className={`currency-pill ${selectedToken === "usdc" ? "active" : ""}`}
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    background:
+                      selectedToken === "usdc"
+                        ? "var(--primary)"
+                        : "rgba(255,255,255,0.03)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "10px",
+                    color: "#fff",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    transition: "all 0.2s ease",
+                  }}
                 >
-                  0.85 TON
+                  USDC
                 </button>
                 <button
-                  className={`currency-pill ${currency === 'USDT' ? 'active' : ''}`}
-                  onClick={() => setCurrency('USDT')}
+                  onClick={() => setSelectedToken("native")}
+                  className={`currency-pill ${selectedToken === "native" ? "active" : ""}`}
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    background:
+                      selectedToken === "native"
+                        ? "var(--primary)"
+                        : "rgba(255,255,255,0.03)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "10px",
+                    color: "#fff",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    transition: "all 0.2s ease",
+                  }}
                 >
-                  10.00 USDT
+                  {currentNetwork.symbol} (Native)
                 </button>
               </div>
             </div>
 
-            {/* Wallet flow */}
-            {!walletConnected ? (
-              <div className="wallet-connect-wrapper">
-                <h3>Connect Web3 Wallet</h3>
-                
-                {connecting ? (
-                  <div className="wallet-connecting-indicator">
-                    <div className="spinner-small gold"></div>
-                    <span>Initializing Secure Connection...</span>
-                  </div>
-                ) : (
-                  <div className="wallet-button-row">
-                    <button className="wallet-btn tonkeeper" onClick={() => handleConnectWallet('tonkeeper')}>
-                      <Smartphone size={16} />
-                      Tonkeeper
-                    </button>
-                    <button className="wallet-btn telegram-wallet" onClick={() => handleConnectWallet('telegram')}>
-                      <Wallet size={16} />
-                      Telegram Wallet
-                    </button>
-                  </div>
-                )}
+            {/* Bill Summary */}
+            <div
+              style={{
+                background: "rgba(0,0,0,0.3)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "12px",
+                padding: "12px",
+                textAlign: "left",
+                marginBottom: "1.5rem",
+                fontSize: "0.8rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ color: "var(--text-muted)" }}>
+                  Required Cost:
+                </span>
+                <span style={{ fontWeight: 800, color: "#fff" }}>
+                  {selectedToken === "usdc"
+                    ? "10.00 USDC"
+                    : `${requiredAmount.toFixed(selectedNetwork === "solana" ? 3 : 5)} ${currentNetwork.symbol}`}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  borderTop: "1px dashed rgba(255,255,255,0.05)",
+                  paddingTop: "6px",
+                }}
+              >
+                <span style={{ color: "var(--text-muted)" }}>
+                  Your Wallet Balance:
+                </span>
+                <span
+                  style={{
+                    fontWeight: 800,
+                    color: hasEnoughFunds
+                      ? "var(--primary-light)"
+                      : "var(--danger)",
+                  }}
+                >
+                  {balance.toFixed(selectedToken === "usdc" ? 2 : 4)}{" "}
+                  {selectedToken === "usdc" ? "USDC" : currentNetwork.symbol}
+                </span>
+              </div>
+            </div>
+
+            {/* Pay Button / Insufficient Funds Alert */}
+            {paying ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "14px",
+                  background: "var(--glass)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "12px",
+                  color: "var(--primary-light)",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  width: "100%",
+                }}
+              >
+                <RefreshCw size={16} className="spinning" />
+                <span>Executing multi-chain payment...</span>
+              </div>
+            ) : !hasEnoughFunds ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    background: "rgba(231,76,60,0.05)",
+                    border: "1px solid rgba(231,76,60,0.15)",
+                    borderRadius: "10px",
+                    padding: "10px",
+                    fontSize: "0.75rem",
+                    color: "rgba(255,255,255,0.7)",
+                    textAlign: "left",
+                  }}
+                >
+                  ⚠️ <strong>Insufficient Balance:</strong> Fund your in-app{" "}
+                  <strong>{currentNetwork.name}</strong> wallet address with at
+                  least $10 worth of{" "}
+                  {selectedToken === "usdc" ? "USDC" : currentNetwork.symbol}{" "}
+                  (plus gas) to unlock premium.
+                </div>
+                <button
+                  className="nav-btn back-btn"
+                  onClick={onClose}
+                  style={{
+                    width: "100%",
+                    justifyContent: "center",
+                    padding: "12px",
+                  }}
+                >
+                  Go to Wallet Page
+                </button>
               </div>
             ) : (
-              <div className="wallet-pay-wrapper">
-                <div className="connected-wallet-indicator">
-                  <div className="indicator-left">
-                    <Wallet size={16} className="active-wallet-icon" />
-                    <span>Connected: **UQDx...e42a** ({walletType === 'tonkeeper' ? 'Tonkeeper' : 'Telegram Wallet'})</span>
-                  </div>
-                  <button className="disconnect-wallet-btn" onClick={() => setWalletConnected(false)}>
-                    Change
-                  </button>
-                </div>
-
-                {paying ? (
-                  <div className="wallet-paying-indicator">
-                    <div className="spinner-small gold"></div>
-                    <span>Broadcasting to TON Blockchain...</span>
-                  </div>
-                ) : (
-                  <button className="submit-pay-contract-btn" onClick={handlePayment}>
-                    Confirm and Pay {currency === 'TON' ? '0.85 TON' : '10.00 USDT'}
-                  </button>
-                )}
-              </div>
+              <button
+                className="next-btn"
+                onClick={handlePayment}
+                style={{ width: "100%", padding: "14px", borderRadius: "12px" }}
+              >
+                Confirm and Pay $10.00
+              </button>
             )}
           </>
         )}

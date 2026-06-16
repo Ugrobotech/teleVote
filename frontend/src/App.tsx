@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Users, Home, Palette } from 'lucide-react';
+import { Trophy, Users, Home, Palette, Wallet } from 'lucide-react';
 import OnboardingFlow from './components/OnboardingFlow';
 import TapContainer from './components/TapContainer';
 import LeaderboardContainer from './components/LeaderboardContainer';
 import FriendsContainer from './components/FriendsContainer';
 import PosterGenerator from './components/PosterGenerator';
+import WalletContainer from './components/WalletContainer';
 import PremiumOverlay from './components/PremiumOverlay';
 import AdminDashboard from './components/AdminDashboard';
 import './index.css';
@@ -38,15 +39,17 @@ interface GameViewProps {
   profile: any;
   onProfileUpdate: (updatedProfile: any) => void;
   onOpenPremium: () => void;
+  onRefreshProfile: () => void;
 }
 
-type Tab = 'tap' | 'leaderboard' | 'friends' | 'poster';
+type Tab = 'tap' | 'leaderboard' | 'friends' | 'poster' | 'wallet';
 
 function GameView({
   telegramId,
   profile,
   onProfileUpdate,
   onOpenPremium,
+  onRefreshProfile,
 }: GameViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>('tap');
 
@@ -71,10 +74,14 @@ function GameView({
           telegramId={telegramId}
           profile={profile}
           onOpenPremium={onOpenPremium}
+          onRefreshProfile={onRefreshProfile}
         />
       )}
       {activeTab === 'poster' && (
         <PosterGenerator profile={profile} />
+      )}
+      {activeTab === 'wallet' && (
+        <WalletContainer telegramId={telegramId} />
       )}
 
       <footer className="bottom-nav">
@@ -93,6 +100,10 @@ function GameView({
         <div className={`nav-item ${activeTab === 'poster' ? 'active' : ''}`} onClick={() => setActiveTab('poster')}>
           <Palette size={22} />
           <span>Poster</span>
+        </div>
+        <div className={`nav-item ${activeTab === 'wallet' ? 'active' : ''}`} onClick={() => setActiveTab('wallet')}>
+          <Wallet size={22} />
+          <span>Wallet</span>
         </div>
       </footer>
     </>
@@ -217,6 +228,7 @@ function App() {
           profile={profile}
           onProfileUpdate={handleProfileUpdate}
           onOpenPremium={() => setIsPremiumOpen(true)}
+          onRefreshProfile={() => fetchProfile(telegramUser.telegramId)}
         />
       )}
 

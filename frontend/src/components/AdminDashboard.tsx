@@ -17,7 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
-  X
+  X,
+  Wallet
 } from 'lucide-react';
 
 // List of all 36 Nigerian states (excluding FCT)
@@ -29,7 +30,7 @@ const STATES_LIST = [
   'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
 ];
 
-type Tab = 'candidates' | 'stats' | 'users' | 'subscribers' | 'leaderboard';
+type Tab = 'candidates' | 'stats' | 'users' | 'subscribers' | 'leaderboard' | 'giveaway' | 'withdrawals';
 
 interface CandidateStats {
   _id: string;
@@ -55,6 +56,16 @@ export default function AdminDashboard() {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Giveaway & Withdrawal states
+  const [eligibleUsers, setEligibleUsers] = useState<any[]>([]);
+  const [drawResult, setDrawResult] = useState<any | null>(null);
+  const [giveawayHistory, setGiveawayHistory] = useState<any[]>([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveRequestId, setApproveRequestId] = useState('');
+  const [approveTxHash, setApproveTxHash] = useState('');
+  const [submittingAction, setSubmittingAction] = useState(false);
 
   // Expanded states list for Gubernatorial view
   const [expandedStates, setExpandedStates] = useState<Record<string, boolean>>({});
@@ -175,6 +186,134 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchEligibleGiveawayUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/admin/giveaway/eligible', {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      setEligibleUsers(data.eligible || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGiveawayHistory = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/admin/giveaways', {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      setGiveawayHistory(data.giveaways || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPendingWithdrawals = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/admin/withdrawals', {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      setPendingWithdrawals(data.withdrawals || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDrawGiveaway = async () => {
+    if (!confirm('Are you sure you want to run the weekly draw? This will reset all users\' weekly tap points!')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/admin/giveaway/draw', {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        setDrawResult(data.draw);
+        alert('Weekly giveaway draw completed successfully!');
+        fetchGiveawayHistory();
+        fetchEligibleGiveawayUsers();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to draw giveaway.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveWithdrawalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approveTxHash.trim()) {
+      alert('Transaction hash is required.');
+      return;
+    }
+    setSubmittingAction(true);
+    try {
+      const res = await fetch('/api/user/admin/withdrawals/approve', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          requestId: approveRequestId,
+          txHash: approveTxHash.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert('Withdrawal approved successfully!');
+        setShowApproveModal(false);
+        setApproveRequestId('');
+        setApproveTxHash('');
+        fetchPendingWithdrawals();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to approve withdrawal.');
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
+  const handleRejectWithdrawal = async (requestId: string) => {
+    if (!confirm('Are you sure you want to reject this withdrawal request?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/admin/withdrawals/reject', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert('Withdrawal rejected.');
+        fetchPendingWithdrawals();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to reject withdrawal.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Trigger loading based on active tab
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -184,6 +323,11 @@ export default function AdminDashboard() {
       fetchSubscribers();
     } else if (activeTab === 'leaderboard') {
       fetchLeaderboard();
+    } else if (activeTab === 'giveaway') {
+      fetchEligibleGiveawayUsers();
+      fetchGiveawayHistory();
+    } else if (activeTab === 'withdrawals') {
+      fetchPendingWithdrawals();
     }
   }, [activeTab, isLoggedIn]);
 
@@ -608,6 +752,50 @@ export default function AdminDashboard() {
             <Trophy size={18} />
             <span>Leaderboard</span>
           </button>
+
+          <button 
+            className={`nav-tab-btn ${activeTab === 'giveaway' ? 'active' : ''}`}
+            onClick={() => setActiveTab('giveaway')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              width: '100%',
+              padding: '0.8rem 1rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'giveaway' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'giveaway' ? '#fff' : 'var(--text-muted)',
+              textAlign: 'left',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Trophy size={18} />
+            <span>Weekly Giveaway</span>
+          </button>
+
+          <button 
+            className={`nav-tab-btn ${activeTab === 'withdrawals' ? 'active' : ''}`}
+            onClick={() => setActiveTab('withdrawals')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              width: '100%',
+              padding: '0.8rem 1rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'withdrawals' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'withdrawals' ? '#fff' : 'var(--text-muted)',
+              textAlign: 'left',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Wallet size={18} />
+            <span>Withdrawals</span>
+          </button>
         </aside>
 
         {/* WORKSPACE VIEW PANEL */}
@@ -986,6 +1174,228 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* TAB: WEEKLY GIVEAWAY */}
+              {activeTab === 'giveaway' && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                    {/* Eligible Pool */}
+                    <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '1.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
+                          Eligible Voters Pool ({eligibleUsers.length})
+                        </h3>
+                        <button
+                          onClick={handleDrawGiveaway}
+                          disabled={eligibleUsers.length === 0}
+                          style={{
+                            background: eligibleUsers.length === 0 ? 'var(--text-muted)' : 'var(--primary)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '0.5rem 1rem',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: eligibleUsers.length === 0 ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          Draw Weekly Winner 🎁
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
+                        Premium subscribers who accumulated at least 10,000 weekly taps are eligible. Weekly taps reset database-wide upon draw.
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                        {eligibleUsers.map((u, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                            <span style={{ fontWeight: 650, color: 'white' }}>@{u.username || 'Anonymous'}</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 750 }}>
+                              {u.weeklyTaps?.toLocaleString()} weekly taps
+                            </span>
+                          </div>
+                        ))}
+                        {eligibleUsers.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                            No users have qualified for the giveaway yet (need &ge; 10,000 taps & premium).
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Latest Draw Result */}
+                    <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '1.5rem' }}>
+                      <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700 }}>
+                        Latest Draw Result
+                      </h3>
+                      {drawResult ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                          <div style={{ background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.2)', padding: '15px', borderRadius: '10px' }}>
+                            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary-light)', fontWeight: 750, display: 'block', marginBottom: '5px' }}>
+                              🏆 Grand Winner ($1,000)
+                            </span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'white' }}>
+                              @{drawResult.winner?.username || 'Anonymous'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                              Telegram ID: {drawResult.winner?.telegramId}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 750, display: 'block', marginBottom: '10px' }}>
+                              👥 Runners Up (Split $1,000)
+                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                              {drawResult.runnersUp?.map((ru: any, idx: number) => (
+                                <div key={idx} style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '0.85rem' }}>
+                                  @{ru.username || 'Anonymous'} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({ru.telegramId})</span>
+                                </div>
+                              ))}
+                              {(!drawResult.runnersUp || drawResult.runnersUp.length === 0) && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No other eligible participants to split with.</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                          No draw executed yet in this session. Click "Draw Weekly Winner" to run a draw.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Historical Giveaways */}
+                  <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '1.5rem' }}>
+                    <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700 }}>
+                      Draws History
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {giveawayHistory.map((g, idx) => (
+                        <div key={idx} style={{ padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                              Date: {new Date(g.weekEndDate).toLocaleString()}
+                            </span>
+                            <span style={{ fontSize: '0.9rem', fontWeight: 750, color: 'white' }}>
+                              Winner: @{g.winner?.username || 'Anonymous'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 650 }}>
+                            {g.runnersUp?.length || 0} runners up split $1k
+                          </div>
+                        </div>
+                      ))}
+                      {giveawayHistory.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                          No giveaways recorded in the database.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: REFERRAL WITHDRAWALS */}
+              {activeTab === 'withdrawals' && (
+                <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '1.5rem' }}>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1.5rem' }}>
+                    Pending Referral Payout Requests ({pendingWithdrawals.length})
+                  </h2>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                          <th style={{ padding: '12px' }}>User</th>
+                          <th style={{ padding: '12px' }}>Points</th>
+                          <th style={{ padding: '12px' }}>Chain</th>
+                          <th style={{ padding: '12px' }}>Recipient Address</th>
+                          <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingWithdrawals.map((w) => (
+                          <tr key={w._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: '0.9rem' }}>
+                            <td style={{ padding: '12px' }}>
+                              <strong style={{ color: 'white', display: 'block' }}>
+                                @{w.username || 'Anonymous'}
+                              </strong>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                ID: {w.telegramId}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px', fontWeight: 800, color: 'var(--accent)' }}>
+                              {w.points} PTS
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                background: w.chain === 'solana' ? 'rgba(153, 50, 204, 0.15)' : 'rgba(33, 150, 243, 0.15)',
+                                color: w.chain === 'solana' ? '#ba55d3' : '#2196f3',
+                                fontWeight: 700
+                              }}>
+                                {w.chain.toUpperCase()}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              {w.walletAddress}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => {
+                                    setApproveRequestId(w._id);
+                                    setApproveTxHash('');
+                                    setShowApproveModal(true);
+                                  }}
+                                  style={{
+                                    background: 'rgba(76, 175, 80, 0.15)',
+                                    color: '#4caf50',
+                                    border: '1px solid rgba(76, 175, 80, 0.3)',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectWithdrawal(w._id)}
+                                  style={{
+                                    background: 'rgba(244, 67, 54, 0.15)',
+                                    color: '#f44336',
+                                    border: '1px solid rgba(244, 67, 54, 0.3)',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {pendingWithdrawals.length === 0 && (
+                          <tr>
+                            <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                              No pending payout requests.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </main>
@@ -1330,6 +1740,67 @@ export default function AdminDashboard() {
                 ) : (
                   <span>Save Changes</span>
                 )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== APPROVE WITHDRAWAL MODAL OVERLAY ==================== */}
+      {showApproveModal && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-content">
+            <button 
+              onClick={() => {
+                setShowApproveModal(false);
+                setApproveRequestId('');
+                setApproveTxHash('');
+              }}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.3rem', fontWeight: 800 }}>Approve Payout</h3>
+
+            <form onSubmit={handleApproveWithdrawalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
+                Please provide the transaction hash / signature of the payout to approve this request.
+              </p>
+              <div>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                  Transaction Hash (txHash)
+                </label>
+                <input
+                  type="text"
+                  value={approveTxHash}
+                  onChange={(e) => setApproveTxHash(e.target.value)}
+                  placeholder="Paste blockchain tx hash here..."
+                  required
+                  style={{ width: '100%', padding: '0.7rem 1rem', background: '#0a0a0a', border: '1px solid var(--glass-border)', borderRadius: '6px', color: '#fff', outline: 'none' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingAction}
+                style={{ 
+                  width: '100%', 
+                  padding: '0.8rem', 
+                  background: submittingAction ? 'var(--text-muted)' : 'var(--primary)', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  cursor: submittingAction ? 'not-allowed' : 'pointer', 
+                  marginTop: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {submittingAction ? 'Approving...' : 'Confirm Approval'}
               </button>
             </form>
           </div>
