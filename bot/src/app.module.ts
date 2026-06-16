@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { GameModule } from './game/game.module';
 import { UserModule } from './user/user.module';
 import { BotModule } from './bot/bot.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { BotModule } from './bot/bot.module';
     GameModule,
     UserModule,
     BotModule,
+    WalletModule,
   ],
   controllers: [AppController],
   providers: [AppService],

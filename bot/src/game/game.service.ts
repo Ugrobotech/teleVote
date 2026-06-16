@@ -27,7 +27,7 @@ export class GameService {
   }
 
   async tapCandidate(userId: string, candidateId: string, taps: number) {
-    if (taps <= 0 || taps > 100) {
+    if (taps <= 0 || taps > 1000) {
       throw new BadRequestException('Invalid tap count or exceeds limit per request');
     }
 
@@ -49,11 +49,11 @@ export class GameService {
     } as any);
 
     const currentDailyTaps = dailyRecord ? dailyRecord.tapCount : 0;
-    if (currentDailyTaps >= 100) {
-      throw new BadRequestException('Daily tap limit of 100 reached for this candidate');
+    if (currentDailyTaps >= 1000) {
+      throw new BadRequestException('Daily tap limit of 1000 reached for this candidate');
     }
 
-    const allowedTaps = Math.min(taps, 100 - currentDailyTaps);
+    const allowedTaps = Math.min(taps, 1000 - currentDailyTaps);
     if (allowedTaps <= 0) {
       throw new BadRequestException('Daily tap limit reached');
     }
@@ -72,8 +72,9 @@ export class GameService {
       { returnDocument: 'after' }
     );
 
-    // Update overall User score
+    // Update overall User score and weekly taps
     userDoc.score = (userDoc.score || 0) + allowedTaps;
+    userDoc.weeklyTaps = (userDoc.weeklyTaps || 0) + allowedTaps;
     await userDoc.save();
 
     // Update lifetime TapRecord for candidate

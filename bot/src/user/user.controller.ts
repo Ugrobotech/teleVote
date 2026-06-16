@@ -50,6 +50,9 @@ export class UserController {
         referralCode: profile.user.referralCode,
         referredBy: profile.user.referredBy,
         isSubscriber: profile.user.isSubscriber,
+        weeklyTaps: profile.user.weeklyTaps || 0,
+        referralPointsWithdrawn: profile.user.referralPointsWithdrawn || 0,
+        referralPointsPending: profile.user.referralPointsPending || 0,
       },
       referralStats: profile.referralStats,
       botLink: profile.botLink,
@@ -96,24 +99,30 @@ export class UserController {
 
   /**
    * POST /api/user/subscribe
-   * Subscribes the user (sets isSubscriber to true).
+   * Subscribes the user by executing Web3 transfer to admin wallets.
    */
   @Post('subscribe')
   async subscribe(
     @Body()
     body: {
       telegramId: string;
+      network?: string;
+      tokenType?: string;
     },
   ) {
     if (!body.telegramId) {
       return { error: 'telegramId is required' };
     }
 
-    const user = await this.userService.subscribeUser(body.telegramId);
+    const network = body.network || 'solana';
+    const tokenType = body.tokenType || 'usdc';
+
+    const result = await this.userService.subscribeUser(body.telegramId, network, tokenType);
 
     return {
       success: true,
-      isSubscriber: user.isSubscriber,
+      isSubscriber: result.user.isSubscriber,
+      signature: result.signature,
     };
   }
 
@@ -202,5 +211,149 @@ export class UserController {
 
     const subscribers = await this.userService.adminGetSubscribers();
     return { subscribers };
+  }
+
+  // --- USER WITHDRAWALS ---
+
+  @Post('withdraw')
+  async withdraw(
+    @Body()
+    body: {
+      telegramId: string;
+      points: number;
+      walletAddress: string;
+      chain: 'solana' | 'evm';
+    },
+  ) {
+    if (!body.telegramId || !body.points || !body.walletAddress || !body.chain) {
+      return { error: 'telegramId, points, walletAddress, and chain are required' };
+    }
+
+    const request = await this.userService.submitWithdrawalRequest(
+      body.telegramId,
+      body.points,
+      body.walletAddress,
+      body.chain,
+    );
+
+    return { success: true, request };
+  }
+
+  @Get('withdrawals')
+  async getWithdrawals(@Query('telegramId') telegramId: string) {
+    if (!telegramId) {
+      return { error: 'telegramId is required' };
+    }
+
+    const withdrawals = await this.userService.getUserWithdrawals(telegramId);
+    return { withdrawals };
+  }
+
+  // --- ADMIN SYSTEM ---
+
+  @Get('admin/withdrawals')
+  async adminGetWithdrawals(
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const withdrawals = await this.userService.adminGetWithdrawalRequests();
+    return { withdrawals };
+  }
+
+  @Post('admin/withdrawals/approve')
+  async adminApproveWithdrawal(
+    @Body() body: { requestId: string; txHash: string },
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    if (!body.requestId || !body.txHash) {
+      return { error: 'requestId and txHash are required' };
+    }
+
+    const request = await this.userService.adminApproveWithdrawal(body.requestId, body.txHash);
+    return { success: true, request };
+  }
+
+  @Post('admin/withdrawals/reject')
+  async adminRejectWithdrawal(
+    @Body() body: { requestId: string },
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    if (!body.requestId) {
+      return { error: 'requestId is required' };
+    }
+
+    const request = await this.userService.adminRejectWithdrawal(body.requestId);
+    return { success: true, request };
+  }
+
+  @Get('admin/giveaway/eligible')
+  async adminGetEligibleGiveaway(
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const eligible = await this.userService.adminGetEligibleGiveawayUsers();
+    return { eligible };
+  }
+
+  @Post('admin/giveaway/draw')
+  async adminDrawGiveaway(
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const draw = await this.userService.adminDrawWeeklyGiveaway();
+    return { success: true, draw };
+  }
+
+  @Get('admin/giveaways')
+  async adminGetGiveaways(
+    @Headers('x-admin-username') username?: string,
+    @Headers('x-admin-password') password?: string,
+  ) {
+    const expectedUsername = this.configService.get<string>('ADMIN_USERNAME', 'admin');
+    const expectedPassword = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+
+    if (!username || !password || username !== expectedUsername || password !== expectedPassword) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const giveaways = await this.userService.adminGetGiveaways();
+    return { giveaways };
   }
 }

@@ -17,8 +17,29 @@ export class User {
   @Prop()
   lastName: string;
 
+  @Prop()
+  evmWalletAddress: string;
+
+  @Prop()
+  svmWalletAddress: string;
+
+  @Prop()
+  evmWalletDetails: string;
+
+  @Prop()
+  svmWalletDetails: string;
+
   @Prop({ default: 0 })
   score: number;
+
+  @Prop({ default: 0 })
+  weeklyTaps: number;
+
+  @Prop({ default: 0 })
+  referralPointsWithdrawn: number;
+
+  @Prop({ default: 0 })
+  referralPointsPending: number;
 
   @Prop()
   state: string;
